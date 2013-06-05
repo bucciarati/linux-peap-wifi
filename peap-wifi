@@ -1,0 +1,38 @@
+#!/bin/bash
+
+essid="$1"
+if [ "x$essid" = "x" ] ; then
+	echo "Usage: $0 <essid>"
+	echo "e.g. $0 BK-ALL"
+	exit 1
+fi
+
+default_user="$USER"
+echo -n "Identity for $essid [$default_user]: "
+read identity
+identity=${identity:-$default_user}
+
+echo -n "Password (will not be echoed): "
+read -s password
+echo
+
+tmpfile=$(mktemp)
+
+cat >$tmpfile <<EOF
+ctrl_interface=/run/wpa_supplicant
+ctrl_interface_group=wheel
+network={
+	ssid="$essid"
+	key_mgmt=WPA-EAP
+	eap=PEAP
+	identity="$identity"
+	password="$password"
+	priority=1
+	phase2="peaplabel=0"
+}
+EOF
+
+wpa_supplicant -B -P /run/wpa_supplicant_wlan0.pid -i wlan0 -D nl80211,wext -c$tmpfile -W
+dhclient -v wlan0
+
+rm -f $tmpfile
