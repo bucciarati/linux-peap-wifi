@@ -2,19 +2,38 @@
 
 essid="$1"
 if [ "x$essid" = "x" ] ; then
-	echo "Usage: $0 <essid>"
-	echo "e.g. $0 BK-ALL"
+  echo "Usage: $0 <essid> [<identity (i.e. username)>]"
+	echo "e.g. $0 BK-WIFI"
+	echo "e.g. $0 BK-WIFI johnny"
 	exit 1
 fi
 
-default_user="$USER"
-echo -n "Identity for $essid [$default_user]: "
-read identity
-identity=${identity:-$default_user}
+identity="$2"
+if [ -z "$identity" ] ; then
+  default_user="${2:-$USER}"
+  echo -n "Identity for $essid [$default_user]: "
+  read identity
+  identity=${identity:-$default_user}
+fi
 
-echo -n "Password (will not be echoed): "
-read -s password
-echo
+if [ -n "$pass_command" ] ; then
+  echo "pass_command=$pass_command"
+  got_password=$( $pass_command )
+  if [ $? -eq 0 ] ; then
+    password="$got_password"
+  else
+    echo "pass_command failed!"
+  fi
+fi
+
+if [ -z "$password" ] ; then
+  echo -n "Password (will not be echoed): "
+  read -s password
+  echo
+fi
+
+# wpa_supplicant isn't as clever as I thought
+# password="${password//\"/\\\"}"
 
 tmpfile=$(mktemp)
 
@@ -32,7 +51,7 @@ network={
 }
 EOF
 
-wpa_supplicant -B -P /run/wpa_supplicant_wlan0.pid -i wlan0 -D nl80211,wext -c$tmpfile -W
+wpa_supplicant -B -P /run/wpa_supplicant.wlan0.pid -i wlan0 -D nl80211,wext -c$tmpfile -W -C /run/wpa_supplicant
 dhclient -v wlan0
 
 rm -f $tmpfile
